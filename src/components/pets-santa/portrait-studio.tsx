@@ -15,6 +15,8 @@ export default function PortraitStudio() {
   const [petSource, setPetSource] = useState<'preset' | 'upload'>('preset');
   const [selectedPreset, setSelectedPreset] = useState<PresetPet>(PRESET_PETS[0]);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   
   // Custom Card Studio states
   const [isGenerating, setIsGenerating] = useState(false);
@@ -73,19 +75,47 @@ export default function PortraitStudio() {
     setSelectedStickerId(`outfit-${selectedOutfit.id}`);
   }, [selectedOutfit]);
 
+  // Upload a pet photo to Vercel Blob via our own API route (server-side upload).
+  // The outbound request to Vercel Blob is made by the server, so it goes
+  // through the proxy configured in instrumentation.ts instead of the browser
+  // hitting vercel.com directly.
+  const uploadPetImage = async (file: File) => {
+    setPetSource('upload');
+    setUploadError(null);
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Upload failed. Please try again.');
+      }
+
+      setUploadedImage(data.url);
+    } catch (err) {
+      console.error('Blob upload failed:', err);
+      setUploadError(
+        err instanceof Error ? err.message : 'Upload failed. Please try again.',
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   // Handle uploaded picture files
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setUploadedImage(event.target.result as string);
-          setPetSource('upload');
-        }
-      };
-      reader.readAsDataURL(file);
+      void uploadPetImage(file);
     }
+    // Allow re-selecting the same file twice in a row.
+    e.target.value = '';
   };
 
   // Drag-and-drop triggers
@@ -97,14 +127,7 @@ export default function PortraitStudio() {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setUploadedImage(event.target.result as string);
-          setPetSource('upload');
-        }
-      };
-      reader.readAsDataURL(file);
+      void uploadPetImage(file);
     }
   };
 
@@ -509,7 +532,15 @@ export default function PortraitStudio() {
               ) : (
                 /* Upload Button Action Box */
                 <div>
-                  {uploadedImage ? (
+                  {isUploading ? (
+                    <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                      <RefreshCw className="w-5 h-5 text-red-500 animate-spin shrink-0" />
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-slate-800">Uploading to cloud…</p>
+                        <p className="text-[10px] text-slate-500">Saving your pet photo to Vercel Blob</p>
+                      </div>
+                    </div>
+                  ) : uploadedImage ? (
                     <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl p-3">
                       <div className="flex items-center gap-2.5">
                         <img 
@@ -520,7 +551,7 @@ export default function PortraitStudio() {
                         />
                         <div className="text-left">
                           <p className="text-xs font-bold text-emerald-900">Custom Pet Loaded</p>
-                          <p className="text-[10px] text-emerald-700">Ready for Christmas fit</p>
+                          <p className="text-[10px] text-emerald-700">Stored safely in the cloud</p>
                         </div>
                       </div>
                       <button
@@ -537,8 +568,13 @@ export default function PortraitStudio() {
                     >
                       <UploadCloud className="w-6 h-6 mb-1 text-red-400" />
                       <span className="text-xs font-bold text-red-800">Choose Image File</span>
-                      <span className="text-[9px] text-slate-400">Loads instantaneously</span>
+                      <span className="text-[9px] text-slate-400">JPG, PNG, WEBP or GIF · up to 4MB</span>
                     </button>
+                  )}
+                  {uploadError && (
+                    <p className="mt-2 text-[10px] font-semibold text-red-600">
+                      ⚠️ {uploadError}
+                    </p>
                   )}
                   <input
                     type="file"
@@ -670,6 +706,12 @@ export default function PortraitStudio() {
                     className="w-full h-full object-cover select-none"
                     referrerPolicy="no-referrer"
                   />
+                ) : isUploading ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-slate-500 bg-white/70 backdrop-blur-sm">
+                    <RefreshCw className="w-8 h-8 mb-2 text-red-500 animate-spin" />
+                    <p className="text-xs font-bold text-red-600">Uploading your pet photo…</p>
+                    <p className="text-[10px] text-slate-400 mt-1">Saving to cloud storage</p>
+                  </div>
                 ) : uploadedImage ? (
                   <img
                     src={uploadedImage}
