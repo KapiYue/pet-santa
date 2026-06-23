@@ -46,7 +46,8 @@ export default function SignUpForm() {
         console.log("SIGN_UP:", response.error.status);
         toast.error(response.error.message);
       } else {
-        redirect("/");
+        toast.success("Account created successfully. Please sign in.");
+        redirect("/signin");
       }
     });
   }
@@ -178,7 +179,11 @@ export default function SignUpForm() {
           )}
         />
 
-        <Button type="submit" disabled={isPending} className="mt-5 w-full">
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="mt-3 w-full rounded-xl bg-red-600 font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-red-700"
+        >
           Sign Up
         </Button>
       </form>
