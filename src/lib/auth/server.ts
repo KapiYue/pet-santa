@@ -9,12 +9,12 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
-  // plugins: [username({
-  //   minUsernameLength: 4,
-  //     maxUsernameLength: 10,
-  //     usernameValidator: (value) => !restrictedUsernames.includes(value),
-  //     usernameNormalization: (value) => value.toLowerCase(),
-  // })],
+  plugins: [username({
+    minUsernameLength: 4,
+      maxUsernameLength: 10,
+      usernameValidator: (value) => !restrictedUsernames.includes(value),
+      usernameNormalization: (value) => value.toLowerCase(),
+  })],
   emailAndPassword: {
     enabled: true,
   },
