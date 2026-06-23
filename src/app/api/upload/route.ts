@@ -1,5 +1,6 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
+import { getServerSession } from "@/lib/auth/get-session";
 
 const ALLOWED_CONTENT_TYPES = [
   "image/jpeg",
@@ -12,6 +13,11 @@ const MAX_SIZE_IN_BYTES = 4 * 1024 * 1024; // 4MB (stay under Vercel's 4.5MB bod
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
+    const session = await getServerSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const form = await request.formData();
     const file = form.get("file");
 

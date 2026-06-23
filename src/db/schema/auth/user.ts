@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -10,6 +10,9 @@ export const user = pgTable("user", {
   image: text("image"),
   role: text("role").default("member").notNull(),
   gender: boolean("gender").notNull(),
+  // Remaining image-generation credits. Topped up via Stripe purchases and
+  // consumed each time the user generates a portrait.
+  credits: integer("credits").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow(),
   updatedAt: timestamp("updatedAt")
     .defaultNow()

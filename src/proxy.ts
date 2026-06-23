@@ -1,17 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-import {
-  apiAuthPrefix,
-  authRoutes,
-  DEFAULT_LOGIN_REDIRECT,
-  publicRoutes,
-} from "./routes";
+import { authRoutes, DEFAULT_LOGIN_REDIRECT, publicRoutes } from "./routes";
 
 export async function proxy(request: NextRequest) {
   const session = getSessionCookie(request);
-
-  const isApiAuth = request.nextUrl.pathname.startsWith(apiAuthPrefix);
 
   const isPublicRoute = publicRoutes.includes(request.nextUrl.pathname);
 
@@ -19,7 +12,10 @@ export async function proxy(request: NextRequest) {
     return authRoutes.some((path) => request.nextUrl.pathname.startsWith(path));
   };
 
-  if (isApiAuth) {
+  // Let all API routes through. They enforce their own auth and return proper
+  // JSON status codes (e.g. 401) instead of being redirected to an HTML page.
+  // This also keeps the public Stripe webhook (/api/webhook) reachable.
+  if (request.nextUrl.pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
@@ -33,7 +29,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!session && !isPublicRoute) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/signin", request.url));
   }
 
   return NextResponse.next();

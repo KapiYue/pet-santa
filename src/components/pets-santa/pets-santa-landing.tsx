@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { 
   Sparkles, ChevronDown, Star, TreePine, 
-  Download, Palette, Zap, ShieldCheck, Moon, Sun
+  Download, Palette, Zap, ShieldCheck, Moon, Sun, CreditCard
 } from 'lucide-react';
 import { FEATURES, TESTIMONIALS, FAQS } from './data';
 import PortraitStudio from './portrait-studio';
@@ -119,6 +120,12 @@ export default function PetsSantaLanding() {
               <span>Portrait Creator</span>
               <span className="bg-red-100 text-red-700 text-[9px] px-1.5 py-0.5 rounded-full font-bold">New</span>
             </button>
+            <Link
+              href="/billing"
+              className={`${isDarkMode ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-red-600'} transition`}
+            >
+              Billing
+            </Link>
           </nav>
 
           {/* Actions Desk */}
@@ -183,6 +190,15 @@ export default function PetsSantaLanding() {
                       </p>
                       <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
                     </div>
+                    <Link
+                      href="/billing"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold transition-colors cursor-pointer ${
+                        isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <CreditCard className="h-4 w-4" /> Billing &amp; Credits
+                    </Link>
                     <button
                       onClick={async () => {
                         setIsUserMenuOpen(false);

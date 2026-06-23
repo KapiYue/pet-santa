@@ -5,6 +5,7 @@ import {
   UploadCloud, Sparkles, RefreshCw, Download, 
   Trash2, Plus, Minus, RotateCw, RotateCcw
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { OUTFITS, BACKGROUNDS, PRESET_PETS } from './data';
 import { Outfit, BackgroundOption, PresetPet, StickerInstance } from './types';
 
@@ -131,8 +132,37 @@ export default function PortraitStudio() {
     }
   };
 
-  // Simulated AI Generation pipeline
-  const handleGenerateClick = () => {
+  // Spend credits, then run the AI generation pipeline. Credits are the source
+  // of truth on the server (/api/generate), so we charge before rendering.
+  const handleGenerateClick = async () => {
+    try {
+      const res = await fetch('/api/generate', { method: 'POST' });
+
+      if (res.status === 401) {
+        toast.error('Please log in to generate portraits.');
+        window.location.href = '/signin';
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 402) {
+        toast.error('Not enough credits. Redirecting you to buy more…');
+        window.location.href = '/pricing';
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Could not start generation.');
+      }
+
+      toast.success(`Generating! ${data.credits} credits remaining.`);
+    } catch (err) {
+      console.error('Generation charge failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not start generation.');
+      return;
+    }
+
     setIsGenerating(true);
     setGenerationStep(0);
     
@@ -592,7 +622,7 @@ export default function PortraitStudio() {
           <div className="mt-8 border-t border-slate-100 pt-5">
             {!isGeneratedState ? (
               <button
-                onClick={handleGenerateClick}
+                onClick={() => void handleGenerateClick()}
                 className="w-full relative overflow-hidden bg-red-600 hover:bg-red-700 text-white font-extrabold uppercase py-3.5 px-6 rounded-2xl transition-all shadow-md hover:shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-2 glowing-btn-red cursor-pointer"
               >
                 <Sparkles className="w-5 h-5 animate-spin" style={{ animationDuration: '3s' }} />
