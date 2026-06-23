@@ -3,6 +3,8 @@
 import React from 'react';
 import { Mail, UserPlus, PawPrint, X } from 'lucide-react';
 import Link from 'next/link';
+import { signIn } from '@/lib/auth/client';
+import { toast } from 'sonner';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -33,6 +35,24 @@ function GoogleIcon() {
 }
 
 export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
+  const [isPending, setIsPending] = React.useState(false);
+
+  const onGoogleSignIn = async () => {
+    setIsPending(true);
+    await signIn.social(
+      {
+        provider: 'google',
+        callbackURL: '/',
+      },
+      {
+        onError: (ctx) => {
+          setIsPending(false);
+          toast.error(ctx.error.message);
+        },
+      },
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -67,11 +87,12 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         <div className="mt-8 space-y-3">
           <button
             type="button"
-            onClick={() => alert('Continuing with Google...')}
-            className="flex w-full items-center justify-center gap-2.5 rounded-full border border-slate-200 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+            onClick={onGoogleSignIn}
+            disabled={isPending}
+            className="flex w-full items-center justify-center gap-2.5 rounded-full border border-slate-200 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <GoogleIcon />
-            Continue with Google
+            {isPending ? 'Redirecting...' : 'Continue with Google'}
           </button>
 
           {/* Divider */}

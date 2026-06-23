@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { SignUpSchema, SignUpValues } from "./validate";
 import InputStartIcon from "../components/input-start-icon";
 import InputPasswordContainer from "../components/input-password";
+import GoogleButton from "../components/button-google";
 import { cn } from "@/lib/utils";
 import { AtSign, MailIcon, UserIcon } from "lucide-react";
 import { GenderRadioGroup } from "../components/gender-radio-group";
@@ -186,6 +187,16 @@ export default function SignUpForm() {
         >
           Sign Up
         </Button>
+
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-slate-200" />
+          <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
+            Or
+          </span>
+          <span className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        <GoogleButton />
       </form>
     </Form>
   );
