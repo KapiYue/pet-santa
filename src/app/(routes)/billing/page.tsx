@@ -42,7 +42,7 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleString();
 }
 
-export default function BillingPage() {
+function BillingPageContent() {
   const { data: session, isPending: isSessionPending } = useSession();
   const searchParams = useSearchParams();
   const justPurchased = searchParams.get('success') === 'true';
@@ -250,5 +250,19 @@ export default function BillingPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-50/50 flex items-center justify-center text-slate-500">
+          Loading…
+        </main>
+      }
+    >
+      <BillingPageContent />
+    </React.Suspense>
   );
 }
