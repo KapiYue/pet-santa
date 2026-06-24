@@ -20,6 +20,11 @@ interface RecordPaymentInput {
   credits: number;
 }
 
+interface ConsumeCreditsOptions {
+  description?: string;
+  generationTaskId?: string;
+}
+
 /**
  * Records a completed Stripe payment and tops up the user's credits.
  * Idempotent on `stripeSessionId`, so retried webhooks won't double-credit.
@@ -72,17 +77,17 @@ export async function recordPaymentAndGrantCredits(
 }
 
 /**
- * Atomically consumes credits for an image generation. Throws
- * `InsufficientCreditsError` when the balance is too low. Returns the
- * remaining balance.
+ * Atomically consumes credits. Throws `InsufficientCreditsError` when the
+ * balance is too low. Returns the remaining balance.
  */
 export async function consumeCredits(
   userId: string,
   cost: number,
-  description = "Portrait generation",
+  options: ConsumeCreditsOptions = {},
 ): Promise<number> {
+  const { description = "Portrait generation", generationTaskId } = options;
+
   return db.transaction(async (tx) => {
-    // Conditional update guards against races: only deducts when enough credits.
     const [updated] = await tx
       .update(user)
       .set({ credits: sql`${user.credits} - ${cost}` })
@@ -93,15 +98,33 @@ export async function consumeCredits(
       throw new InsufficientCreditsError();
     }
 
+    const transactionId = randomUUID();
     await tx.insert(creditTransaction).values({
-      id: randomUUID(),
+      id: transactionId,
       userId,
       type: "usage",
       amount: -cost,
       balanceAfter: updated.credits,
       description,
+      generationTaskId,
     });
 
     return updated.credits;
   });
+}
+
+/**
+ * Returns whether the user has enough credits for a generation.
+ */
+export async function hasEnoughCredits(
+  userId: string,
+  cost: number,
+): Promise<boolean> {
+  const [account] = await db
+    .select({ credits: user.credits })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  return (account?.credits ?? 0) >= cost;
 }

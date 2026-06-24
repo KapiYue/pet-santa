@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Sparkles, ChevronDown, Star, TreePine, 
-  Download, Palette, Zap, ShieldCheck, Moon, Sun, CreditCard
+  Download, Palette, Zap, ShieldCheck, Moon, Sun, CreditCard, ImageIcon
 } from 'lucide-react';
 import { FEATURES, TESTIMONIALS, FAQS } from './data';
 import PortraitStudio from './portrait-studio';
@@ -190,6 +190,15 @@ export default function PetsSantaLanding() {
                       </p>
                       <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
                     </div>
+                    <Link
+                      href="/creations"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold transition-colors cursor-pointer ${
+                        isDarkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ImageIcon className="h-4 w-4" /> My Creations
+                    </Link>
                     <Link
                       href="/billing"
                       onClick={() => setIsUserMenuOpen(false)}

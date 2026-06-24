@@ -16,6 +16,8 @@ export const creditTransaction = pgTable("credit_transaction", {
   description: text("description"),
   // Links a recharge transaction back to the originating payment, when any.
   paymentId: text("paymentId"),
+  // Links a usage transaction back to the portrait generation task, when any.
+  generationTaskId: text("generationTaskId"),
   createdAt: timestamp("createdAt").defaultNow(),
 }).enableRLS();
 

@@ -23,6 +23,8 @@ export default function PortraitStudio() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
   const [isGeneratedState, setIsGeneratedState] = useState(false);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [cardHeading, setCardHeading] = useState('Merry Christmas!');
   const [cardTextColor, setCardTextColor] = useState('#ef4444'); // Default red
   const [cardFont, setCardFont] = useState<'serif' | 'sans' | 'script'>('serif');
@@ -132,11 +134,37 @@ export default function PortraitStudio() {
     }
   };
 
-  // Spend credits, then run the AI generation pipeline. Credits are the source
-  // of truth on the server (/api/generate), so we charge before rendering.
+  // Create a Kie.ai generation task, poll until complete, then show the result.
   const handleGenerateClick = async () => {
+    const originalImageUrl =
+      petSource === 'preset' ? selectedPreset.imageUrl : uploadedImage;
+
+    if (!originalImageUrl) {
+      toast.error('Please upload a pet photo or choose a preset first.');
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationStep(0);
+    setGeneratedImageUrl(null);
+    setActiveTaskId(null);
+
+    const stepInterval = setInterval(() => {
+      setGenerationStep((prev) => Math.min(prev + 1, 4));
+    }, 2500);
+
     try {
-      const res = await fetch('/api/generate', { method: 'POST' });
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          originalImageUrl,
+          outfitId: selectedOutfit.id,
+          backgroundId: selectedBackground.id,
+          aspectRatio: '1:1',
+          resolution: '1K',
+        }),
+      });
 
       if (res.status === 401) {
         toast.error('Please log in to generate portraits.');
@@ -156,37 +184,46 @@ export default function PortraitStudio() {
         throw new Error(data?.error || 'Could not start generation.');
       }
 
-      toast.success(`Generating! ${data.credits} credits remaining.`);
-    } catch (err) {
-      console.error('Generation charge failed:', err);
-      toast.error(err instanceof Error ? err.message : 'Could not start generation.');
-      return;
-    }
+      const taskId = data.taskId as string;
+      setActiveTaskId(taskId);
+      toast.success(
+        `Generation started! ${data.credits} credits available. 20 credits will be charged on success.`,
+      );
 
-    setIsGenerating(true);
-    setGenerationStep(0);
-    
-    const steps = [
-      "Analyzing pet facial structures ( ears, eyes, nose)...",
-      "Drafting custom digital outfit layout patterns...",
-      "Weaving custom lighting & holiday shadows...",
-      "Blending pet fur & whiskers seamlessly with outfit fabric...",
-      "Rendering final Christmas Portrait cards..."
-    ];
+      const pollUntilDone = async (): Promise<void> => {
+        const pollRes = await fetch(`/api/generate/${taskId}`, {
+          cache: 'no-store',
+        });
+        const pollData = await pollRes.json();
 
-    const interval = setInterval(() => {
-      setGenerationStep(prev => {
-        if (prev >= steps.length - 1) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsGenerating(false);
-            setIsGeneratedState(true);
-          }, 800);
-          return prev;
+        if (!pollRes.ok) {
+          throw new Error(pollData?.error || 'Failed to check generation status.');
         }
-        return prev + 1;
-      });
-    }, 700);
+
+        if (pollData.status === 'success' && pollData.generatedImageUrl) {
+          setGeneratedImageUrl(pollData.generatedImageUrl);
+          setIsGeneratedState(true);
+          toast.success('Your Christmas portrait is ready!');
+          return;
+        }
+
+        if (pollData.status === 'fail') {
+          throw new Error(pollData.failMsg || 'Generation failed. Please try again.');
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        return pollUntilDone();
+      };
+
+      await pollUntilDone();
+    } catch (err) {
+      console.error('Generation failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not complete generation.');
+    } finally {
+      clearInterval(stepInterval);
+      setIsGenerating(false);
+      setActiveTaskId(null);
+    }
   };
 
   // Preset Sticker library additions
@@ -376,7 +413,12 @@ export default function PortraitStudio() {
     };
 
     // Determine the path to draw
-    const imgSource = petSource === 'preset' ? selectedPreset.imageUrl : uploadedImage;
+    const imgSource =
+      isGeneratedState && generatedImageUrl
+        ? generatedImageUrl
+        : petSource === 'preset'
+          ? selectedPreset.imageUrl
+          : uploadedImage;
     if (imgSource) {
       petImg.src = imgSource;
     }
@@ -409,7 +451,7 @@ export default function PortraitStudio() {
           <div className="flex items-center gap-2">
             <span className="flex h-2 w-2 rounded-full bg-red-600 animate-pulse"></span>
             <span className="font-semibold text-red-900">Your Photos Stay Protected:</span>
-            <span>All pet portrait composition runs 100% locally inside your client sandbox. No files are stored.</span>
+            <span>Uploaded photos are stored securely in cloud storage for AI generation and your creation history.</span>
           </div>
           <button 
             onClick={() => setIsPrivateTipOpen(false)} 
@@ -444,8 +486,8 @@ export default function PortraitStudio() {
                     onClick={() => {
                       setSelectedOutfit(outfit);
                       if (isGeneratedState) {
-                        // Gently reset state to generate again
                         setIsGeneratedState(false);
+                        setGeneratedImageUrl(null);
                       }
                     }}
                     className={`group relative flex flex-col items-center justify-center p-3.5 rounded-xl border-2 text-center transition-all ${
@@ -540,7 +582,10 @@ export default function PortraitStudio() {
                         key={pet.id}
                         onClick={() => {
                           setSelectedPreset(pet);
-                          if (isGeneratedState) setIsGeneratedState(false);
+                          if (isGeneratedState) {
+                            setIsGeneratedState(false);
+                            setGeneratedImageUrl(null);
+                          }
                         }}
                         className={`group relative flex flex-col items-center p-1 border-2 rounded-xl overflow-hidden transition-all text-center ${
                           isSelected ? 'border-red-600 ring-4 ring-red-50' : 'border-slate-200'
@@ -631,18 +676,33 @@ export default function PortraitStudio() {
             ) : (
               <div className="flex gap-2">
                 <button
-                  onClick={() => setIsGeneratedState(false)}
+                  onClick={() => {
+                    setIsGeneratedState(false);
+                    setGeneratedImageUrl(null);
+                  }}
                   className="flex-1 py-3 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase rounded-xl transition-all flex items-center justify-center gap-1.5"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Choose Outfit</span>
                 </button>
                 <button
-                  onClick={downloadHolidayCard}
+                  onClick={() => {
+                    if (generatedImageUrl) {
+                      const link = document.createElement('a');
+                      link.download = `Pets_Santa_AI_Portrait_${selectedOutfit.id}.png`;
+                      link.href = generatedImageUrl;
+                      link.target = '_blank';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      return;
+                    }
+                    downloadHolidayCard();
+                  }}
                   className="flex-1 py-3 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Download JPG</span>
+                  <span>{generatedImageUrl ? 'Download AI Portrait' : 'Download JPG'}</span>
                 </button>
               </div>
             )}
@@ -687,7 +747,7 @@ export default function PortraitStudio() {
                 </p>
 
                 <p className="text-[10px] text-slate-400 mt-12 tracking-wider">
-                  DO NOT REFRESH • HIGH RESOLUTION PORTRAIT CREATION
+                  DO NOT REFRESH • {activeTaskId ? `TASK ${activeTaskId.slice(0, 8)}…` : 'AI PORTRAIT CREATION'}
                 </p>
               </div>
             )}
@@ -729,7 +789,14 @@ export default function PortraitStudio() {
 
               {/* Main Pet Image Core Frame */}
               <div className="absolute inset-x-8 top-16 bottom-16 rounded-2xl overflow-hidden border border-white/20 shadow-md bg-slate-900/10">
-                {petSource === 'preset' ? (
+                {isGeneratedState && generatedImageUrl ? (
+                  <img
+                    src={generatedImageUrl}
+                    alt="AI generated Christmas portrait"
+                    className="w-full h-full object-cover select-none"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : petSource === 'preset' ? (
                   <img
                     src={selectedPreset.imageUrl}
                     alt="Active pet avatar"
@@ -767,8 +834,8 @@ export default function PortraitStudio() {
                 )}
               </div>
 
-              {/* STICKERS LAYER OVERLAY */}
-              {stickers.map((sticker) => {
+              {/* STICKERS LAYER OVERLAY — hidden when showing AI result */}
+              {!(isGeneratedState && generatedImageUrl) && stickers.map((sticker) => {
                 const isSelected = selectedStickerId === sticker.id;
                 return (
                   <div
