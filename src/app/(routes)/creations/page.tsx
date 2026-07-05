@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { OUTFITS, BACKGROUNDS } from '@/components/pets-santa/data';
+import BrandLogo from '@/components/pets-santa/brand-logo';
 
 interface CreationTask {
   id: string;
@@ -110,10 +111,7 @@ export default function CreationsPage() {
       <header className="sticky top-0 z-40 backdrop-blur-md border-b border-slate-100 bg-white/90">
         <div className="max-w-6xl mx-auto px-6 h-18 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-2xl select-none group-hover:rotate-12 transition-transform">🎅</span>
-            <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-red-500 bg-clip-text text-transparent font-serif italic">
-              Pets Santa
-            </span>
+            <BrandLogo />
           </Link>
           <div className="flex items-center gap-3 text-sm font-semibold">
             <Link href="/" className="flex items-center gap-1.5 text-slate-600 hover:text-red-600 transition">

@@ -51,6 +51,10 @@ export const metadata: Metadata = {
   title: "Pets Santa - AI Christmas Portrait Generator",
   description:
     "Upload a photo and instantly dress your pet in Santa, Elf, or Reindeer outfits—perfect for adorable holiday cards, stickers, and family letters.",
+  icons: {
+    icon: "/pets-santa-logo.svg",
+    shortcut: "/pets-santa-logo.svg",
+  },
 };
 
 export default function RootLayout({

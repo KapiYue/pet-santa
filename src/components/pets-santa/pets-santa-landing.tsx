@@ -12,6 +12,7 @@ import BeforeAfterSlider from './before-after-slider';
 import LoginModal from './login-modal';
 import PricingSection from './pricing-section';
 import { useSession, signOut } from '@/lib/auth/client';
+import BrandLogo from './brand-logo';
 
 export default function PetsSantaLanding() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -88,15 +89,7 @@ export default function PetsSantaLanding() {
           
           {/* Brand Logo */}
           <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2 group text-left cursor-pointer">
-            <span className="text-2xl select-none filter drop-shadow-sm group-hover:rotate-12 transition-transform">🎅</span>
-            <div>
-              <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-red-500 bg-clip-text text-transparent font-serif italic">
-                Pets Santa
-              </span>
-              <span className="block text-[8px] tracking-widest text-slate-400 font-mono font-bold uppercase">
-                AI Portrait Studio
-              </span>
-            </div>
+            <BrandLogo showSubtitle />
           </button>
 
           {/* Links Row */}
@@ -557,9 +550,7 @@ export default function PetsSantaLanding() {
           
           {/* Logo & Info column */}
           <div className="md:col-span-6 space-y-3">
-            <div className="flex items-center gap-1.5 font-bold font-serif italic text-lg text-red-600 leading-none">
-              <span>🎅</span> <span>Pets Santa</span>
-            </div>
+            <BrandLogo size="sm" />
             <p className="leading-relaxed max-w-sm font-semibold text-[11px] text-slate-400">
               Make beautiful, customizable holiday portraits in seconds. Dress your furry friends in standard high-fidelity Christmas outfits using the power of interactive browser design.
             </p>

@@ -1,7 +1,8 @@
 import { type Metadata } from "next";
 import Link from "next/link";
 import SignUpForm from "./form";
-import { ArrowLeft, PawPrint } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import BrandLogo from "@/components/pets-santa/brand-logo";
 
 export const metadata: Metadata = {
   title: "Sign Up",
@@ -20,12 +21,7 @@ export default function SignUpPage() {
 
       {/* Brand logo */}
       <Link href="/" className="group z-10 mb-8 flex items-center gap-3">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 shadow-md transition-transform group-hover:scale-105">
-          <PawPrint className="h-6 w-6 text-white" />
-        </span>
-        <span className="bg-gradient-to-r from-red-600 to-red-500 bg-clip-text font-serif text-3xl font-bold italic tracking-tight text-transparent">
-          Pets Santa
-        </span>
+        <BrandLogo size="lg" iconClassName="group-hover:scale-105 group-hover:rotate-0" />
       </Link>
 
       {/* Auth card */}

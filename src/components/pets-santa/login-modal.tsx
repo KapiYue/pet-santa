@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Mail, UserPlus, PawPrint, X } from 'lucide-react';
+import { Mail, UserPlus, X } from 'lucide-react';
 import Link from 'next/link';
 import { signIn } from '@/lib/auth/client';
 import { toast } from 'sonner';
+import BrandLogo from './brand-logo';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -67,9 +68,9 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
           <X className="h-5 w-5" />
         </button>
 
-        {/* Paw icon */}
+        {/* Brand icon */}
         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
-          <PawPrint className="h-7 w-7 text-red-600" />
+          <BrandLogo showText={false} iconClassName="h-12 w-12" />
         </div>
 
         {/* Heading */}
