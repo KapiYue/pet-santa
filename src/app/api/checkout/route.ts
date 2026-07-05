@@ -26,6 +26,7 @@ export async function POST(): Promise<NextResponse> {
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${baseUrl}/billing?success=true`,
       cancel_url: `${baseUrl}/pricing?canceled=true`,
+      client_reference_id: session.user.id,
       customer_email: session.user.email,
       // Carried through to the webhook so we know who to credit.
       metadata: {

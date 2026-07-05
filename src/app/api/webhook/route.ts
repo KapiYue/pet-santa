@@ -1,8 +1,50 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { user } from "@/db/schema/auth";
 import { stripe } from "@/lib/billing/stripe";
 import { CREDITS_PER_PURCHASE } from "@/lib/billing/config";
 import { recordPaymentAndGrantCredits } from "@/lib/billing/credits";
+
+async function resolveCheckoutUserId(
+  checkoutSession: Stripe.Checkout.Session,
+): Promise<string | null> {
+  const metadataUserId = checkoutSession.metadata?.userId;
+
+  if (metadataUserId) {
+    const [account] = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.id, metadataUserId))
+      .limit(1);
+
+    if (account) {
+      return account.id;
+    }
+  }
+
+  const email =
+    checkoutSession.customer_details?.email ?? checkoutSession.customer_email;
+
+  if (!email) {
+    return null;
+  }
+
+  const [account] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, email))
+    .limit(1);
+
+  if (account && metadataUserId && account.id !== metadataUserId) {
+    console.warn(
+      `[webhook] resolved stale checkout userId ${metadataUserId} to ${account.id} by email ${email}.`,
+    );
+  }
+
+  return account?.id ?? null;
+}
 
 // Stripe needs the raw, unparsed body to verify the signature, so we must not
 // let any framework body parsing run before us. Reading request.text() gives
@@ -34,7 +76,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   if (event.type === "checkout.session.completed") {
     const checkoutSession = event.data.object as Stripe.Checkout.Session;
-    const userId = checkoutSession.metadata?.userId;
+    const userId = await resolveCheckoutUserId(checkoutSession);
     const credits = Number(
       checkoutSession.metadata?.credits ?? CREDITS_PER_PURCHASE,
     );
