@@ -1,0 +1,109 @@
+name: Keepalive
+
+on:
+  schedule:
+    # 避开整点高峰（GitHub 在每小时开头负载最高，可能延迟甚至丢弃排队任务）
+    # 同日双保险，间隔约 11 小时，任一条跑成功即可
+    - cron: '17 4 */2 * *'    # 04:17 UTC = 12:17 北京时间
+    - cron: '37 15 */2 * *'   # 15:37 UTC = 23:37 北京时间
+  workflow_dispatch:          # 手动触发：验证脚本本身是否正确，不要靠等定时
+
+permissions:
+  contents: write             # 覆盖仓库默认值，确保能 push keepalive 分支
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false   # 两条 cron 万一撞上，排队执行而不是互相取消
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5        # 防止卡死空耗 Actions 额度
+
+    env:
+      KEEPALIVE_BRANCH: keepalive
+      # 换成你库里任意一张真实存在的表
+      SUPABASE_TABLE: ${{ vars.SUPABASE_KEEPALIVE_TABLE || 'users' }}
+
+    steps:
+      - name: Record start time
+        run: |
+          echo "START_UTC=$(date -u +'%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
+          echo "START_CST=$(TZ=Asia/Shanghai date +'%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
+
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -uo pipefail
+          code=000
+          for i in 1 2 3; do
+            code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+              "${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=*&limit=1" \
+              -H "apikey: ${SUPABASE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_KEY}") || code=000
+            echo "attempt ${i} -> HTTP ${code}"
+            if [ "$code" = "200" ]; then
+              echo "PING_OK=true" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep $((i * 10))
+          done
+          echo "::error::Supabase ping failed after 3 attempts (last HTTP ${code})"
+          cat /tmp/resp.json 2>/dev/null || true
+          exit 1
+
+  
+      - name: Push heartbeat
+        if: always()          # ping 挂了也要推心跳：60 天停用比一次 ping 失败严重
+        env:
+          GH_TOKEN: ${{ secrets.KEEPALIVE_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          timestamp="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          workdir="$(mktemp -d)"
+
+          echo "$timestamp" > "$workdir/HEARTBEAT"
+
+          # keepalive 是孤儿分支，只有 HEARTBEAT，没有 package.json。
+          # Vercel 默认给每个分支建 preview 部署，构建必然以
+          # "No Next.js version detected" 失败，然后每两天给你发一封失败邮件。
+          #   ignoreCommand 退出码 0 = 跳过构建（退出码 1 才继续构建）
+          #   deploymentEnabled 再兜一层，连部署记录都不创建
+          cat > "$workdir/vercel.json" <<'JSON'
+          {
+            "ignoreCommand": "exit 0",
+            "git": {
+              "deploymentEnabled": {
+                "keepalive": false
+              }
+            }
+          }
+          JSON
+
+          git -C "$workdir" init -q -b "$KEEPALIVE_BRANCH"
+          git -C "$workdir" config user.name  'github-actions[bot]'
+          git -C "$workdir" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$workdir" add HEARTBEAT vercel.json
+          git -C "$workdir" commit -q -m "chore(keepalive): heartbeat $timestamp [skip ci]"
+
+          # --force：每次都重建，keepalive 分支永远只有一个提交，不碰 main 的历史
+          git -C "$workdir" push -q --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "$KEEPALIVE_BRANCH"
+
+      - name: Run summary
+        if: always()
+        run: |
+          {
+            echo "### Keepalive 运行记录"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "| --- | --- |"
+            echo "| 触发方式 | \`${{ github.event_name }}\` |"
+            echo "| cron 表达式 | \`${{ github.event.schedule || 'manual' }}\` |"
+            echo "| 实际开始 (UTC) | ${START_UTC:-?} |"
+            echo "| 实际开始 (北京) | ${START_CST:-?} |"
+            echo "| Supabase ping | ${PING_OK:-false} |"
+          } >> "$GITHUB_STEP_SUMMARY"
