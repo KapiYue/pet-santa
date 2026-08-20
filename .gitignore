@@ -40,3 +40,8 @@ yarn-error.log*
 next-env.d.ts
 
 .temp
+# 只保留 pnpm-lock.yaml 一份锁文件，避免 Vercel/CI 选错包管理器
+bun.lock
+bun.lockb
+package-lock.json
+yarn.lock

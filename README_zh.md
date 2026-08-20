@@ -142,7 +142,7 @@
 ### 环境要求
 
 - Node.js ≥ 18.18
-- [pnpm](https://pnpm.io/)（推荐）或 bun / npm
+- [pnpm](https://pnpm.io/)（本项目通过 `packageManager` 固定 pnpm）
 - 一个 [Supabase](https://supabase.com/) 项目（PostgreSQL 连接字符串）
 - 一个 [Stripe](https://stripe.com/) 账户（本地开发使用测试模式即可）
 - 一个 [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) 存储桶及读写令牌
@@ -160,7 +160,7 @@ cd <your-repo>
 
 ```bash
 pnpm install
-# 或：bun install / npm install
+# pnpm-lock.yaml 是唯一锁文件，用别的包管理器请勿提交生成的锁文件
 ```
 
 ### 3. 配置环境变量

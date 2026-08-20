@@ -142,7 +142,7 @@ Track remaining credits, purchase history, and a full ledger of every credit ear
 ### Prerequisites
 
 - Node.js ≥ 18.18
-- [pnpm](https://pnpm.io/) (recommended) or bun / npm
+- [pnpm](https://pnpm.io/) (this project pins pnpm via `packageManager`)
 - A [Supabase](https://supabase.com/) project (PostgreSQL connection string)
 - A [Stripe](https://stripe.com/) account (test mode is fine for local dev)
 - A [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) store / read-write token
@@ -160,7 +160,7 @@ cd <your-repo>
 
 ```bash
 pnpm install
-# or: bun install / npm install
+# pnpm-lock.yaml is the only lockfile — do not commit lockfiles from other package managers
 ```
 
 ### 3. Configure environment variables
