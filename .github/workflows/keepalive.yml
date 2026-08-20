@@ -1,9 +1,14 @@
+# 让 Supabase 免费实例不被休眠：每次运行连一次数据库跑 `select now()`。
+#
+# 另外，GitHub 会在仓库连续 60 天没有活动后停用定时工作流。所以每次运行还会往
+# keepalive 孤儿分支强推一个 HEARTBEAT 文件，用这次提交重置那个 60 天计时器。
 name: Keepalive
 
 on:
   schedule:
-    # 避开整点高峰（GitHub 在每小时开头负载最高，可能延迟甚至丢弃排队任务）
-    # 同日双保险，间隔约 11 小时，任一条跑成功即可
+    # cron 五个字段：分 时 日 月 星期，时区固定为 UTC（不是北京时间）。
+    # 避开整点：GitHub 在每小时开头负载最高，可能延迟甚至丢弃排队任务。
+    # 同日双保险，间隔约 11 小时，任一条跑成功即可。
     - cron: '17 4 */2 * *'    # 04:17 UTC = 12:17 北京时间
     - cron: '37 15 */2 * *'   # 15:37 UTC = 23:37 北京时间
   workflow_dispatch:          # 手动触发：验证脚本本身是否正确，不要靠等定时
@@ -22,8 +27,6 @@ jobs:
 
     env:
       KEEPALIVE_BRANCH: keepalive
-      # 换成你库里任意一张真实存在的表
-      SUPABASE_TABLE: ${{ vars.SUPABASE_KEEPALIVE_TABLE || 'users' }}
 
     steps:
       - name: Record start time
@@ -31,32 +34,33 @@ jobs:
           echo "START_UTC=$(date -u +'%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
           echo "START_CST=$(TZ=Asia/Shanghai date +'%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
 
-      - name: Ping Supabase
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          set -uo pipefail
-          code=000
-          for i in 1 2 3; do
-            code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
-              "${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=*&limit=1" \
-              -H "apikey: ${SUPABASE_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_KEY}") || code=000
-            echo "attempt ${i} -> HTTP ${code}"
-            if [ "$code" = "200" ]; then
-              echo "PING_OK=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
-            sleep $((i * 10))
-          done
-          echo "::error::Supabase ping failed after 3 attempts (last HTTP ${code})"
-          cat /tmp/resp.json 2>/dev/null || true
-          exit 1
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 真正干活的一步：走 DATABASE_URL 连一次库。
+      # 不用 Supabase REST：那条路还要额外配 URL + service_role key，
+      # 且结果取决于表名、RLS、Data API 暴露了哪些 schema，坏的方式太多。
+      - name: Touch database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          pnpm run keepalive
+          echo "PING_OK=true" >> "$GITHUB_ENV"
+
       - name: Push heartbeat
-        if: always()          # ping 挂了也要推心跳：60 天停用比一次 ping 失败严重
+        if: always()          # 连库挂了也要推心跳：60 天被停用比一次 ping 失败严重
         env:
           GH_TOKEN: ${{ secrets.KEEPALIVE_PAT || secrets.GITHUB_TOKEN }}
         run: |
@@ -105,5 +109,5 @@ jobs:
             echo "| cron 表达式 | \`${{ github.event.schedule || 'manual' }}\` |"
             echo "| 实际开始 (UTC) | ${START_UTC:-?} |"
             echo "| 实际开始 (北京) | ${START_CST:-?} |"
-            echo "| Supabase ping | ${PING_OK:-false} |"
+            echo "| 数据库 ping | ${PING_OK:-false} |"
           } >> "$GITHUB_STEP_SUMMARY"
